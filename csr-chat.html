@@ -9,11 +9,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* WebView specific fixes */
-        html, body { 
-            font-family: sans-serif; 
-            overscroll-behavior-y: none; /* Prevents pull-to-refresh */
-            -webkit-tap-highlight-color: transparent; 
-        }
+html, body { 
+    font-family: 'Plus Jakarta Sans', sans-serif; 
+    height: 100vh; /* Purane mobiles ke liye fallback */
+    height: 100dvh; /* Mobile browsers me neeche wale buttons chupaney ka FIX */
+    display: flex; flex-direction: column; overflow: hidden; margin: 0; background-color: #f3f4f6; 
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+}
 
         .chat-bg { background-color: #e5ddd5; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-attachment: fixed; }
         .bubble-in, .bubble-out { max-width: 85%; word-wrap: break-word; overflow-wrap: break-word; word-break: break-all; position: relative; }
