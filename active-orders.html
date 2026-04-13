@@ -331,6 +331,32 @@
             document.getElementById('offlineBanner').style.top = '-50px';
             fetchOrders();
         });
+        // --- AUDIO FORCE UNLOCKER FOR ANDROID WEBVIEW ---
+function forceUnlockAudio() {
+    const sound = document.getElementById('notifSound');
+    if(sound) {
+        // Ek dafa halka sa play kar ke pause kar do taake Android ko lagay user ne allow kar diya hai
+        let promise = sound.play();
+        if (promise !== undefined) {
+            promise.then(() => {
+                sound.pause();
+                sound.currentTime = 0;
+                console.log("Audio Unlocked Successfully!");
+            }).catch(error => {
+                console.log("Audio still blocked by Android:", error);
+            });
+        }
+    }
+    // Jab ek dafa unlock ho jaye to in events ko hata do taake app bhari na ho
+    document.removeEventListener('click', forceUnlockAudio);
+    document.removeEventListener('touchstart', forceUnlockAudio);
+    document.removeEventListener('scroll', forceUnlockAudio);
+}
+
+// User jese hi screen par pehla click, touch, ya thora sa scroll karega, awaz unlock ho jayegi
+document.addEventListener('click', forceUnlockAudio);
+document.addEventListener('touchstart', forceUnlockAudio);
+document.addEventListener('scroll', forceUnlockAudio);
 
         window.onload = init;
     </script>
