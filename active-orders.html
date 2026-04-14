@@ -96,25 +96,33 @@
                 .select('order_id')
                 .in('order_id', orderIds)
                 .neq('sender_phone', userPhone)
-                .neq('status', 'seen'); // Jo messages abhi seen nahi hue
+                .neq('status', 'seen'); 
                 
+            let newCounts = {};
             if (!error && data) {
-                unreadCounts = {};
                 data.forEach(msg => {
-                    unreadCounts[msg.order_id] = (unreadCounts[msg.order_id] || 0) + 1;
+                    newCounts[msg.order_id] = (newCounts[msg.order_id] || 0) + 1;
                 });
             }
+            unreadCounts = newCounts; // Har dafa update hoga
             renderOrders(currentOrders);
         }
 
-        // Ringtone Logic with WebView Safety
+        // Ringtone Logic with WebView Safety (Zabardasti Aawaz + Vibrate)
         function ring() { 
+            if(!sound) return;
+            sound.volume = 1.0; 
             sound.currentTime = 0; 
             let playPromise = sound.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => console.log("Audio play prevented:", error));
+                playPromise.catch(error => {
+                    console.log("Audio blocked by Android:", error);
+                    // Agar aawaz block ho jaye tou zor se vibrate karega!
+                    if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]); 
+                });
+            } else {
+                if (navigator.vibrate) navigator.vibrate([300, 100, 300]); 
             }
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
         }
 
         async function init() {
@@ -147,23 +155,30 @@
             _supabase.channel('order-updates').on('postgres_changes', { 
                 event: 'UPDATE', schema: 'public', table: 'orders', filter: `customer_phone=eq.${userPhone}` 
             }, (payload) => {
-                ring(); // Ringtone bajegi jab order update hoga
+                ring(); 
                 fetchOrders();
             }).subscribe();
 
-            // 2. Listen for Rider Messages (Chats table ki jagah order_chats)
+            // 2. Listen for Rider Messages (Naya message aaye tou ring aur count update ho)
             _supabase.channel('message-notifs').on('postgres_changes', { 
                 event: 'INSERT', schema: 'public', table: 'order_chats' 
             }, (payload) => {
                 if(payload.new.sender_phone !== userPhone) {
-                    ring(); // Ringtone bajegi jab rider ka naya message aayega
-                    fetchUnreadCounts(); // Naya message aane par screen pe count update ho jayega
+                    ring(); 
+                    fetchUnreadCounts(); 
                 }
+            }).subscribe();
+
+            // 3. Listen for Read Messages (Agar chat parh li jaye tou badge foran khatam ho)
+            _supabase.channel('message-seen').on('postgres_changes', { 
+                event: 'UPDATE', schema: 'public', table: 'order_chats' 
+            }, (payload) => {
+                fetchUnreadCounts(); 
             }).subscribe();
         }
 
         async function fetchOrders() {
-            if(!navigator.onLine) return; // Skip if offline
+            if(!navigator.onLine) return; 
 
             const { data, error } = await _supabase.from('orders')
                 .select('*')
@@ -176,12 +191,9 @@
                 return;
             }
 
-            const currentDataString = JSON.stringify(data);
-            if (lastDataString !== currentDataString) {
-                lastDataString = currentDataString;
-                currentOrders = data || [];
-                fetchUnreadCounts(); // renderOrders ki jagah ab ye call hoga taake pehle unread messages count hon
-            }
+            // Hamesha current data aur counts refresh karo (purani rok hata di)
+            currentOrders = data || [];
+            fetchUnreadCounts(); 
         }
 
         function renderOrders(orders) {
@@ -386,6 +398,13 @@ function forceUnlockAudio() {
 document.addEventListener('click', forceUnlockAudio);
 document.addEventListener('touchstart', forceUnlockAudio);
 document.addEventListener('scroll', forceUnlockAudio);
+
+        // Jab user chat screen se 'Back' dabaye, toh cache ki jagah data dobara load kare
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                fetchOrders();
+            }
+        });
 
         window.onload = init;
     </script>
