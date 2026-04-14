@@ -193,6 +193,13 @@ function ring() {
             if(data) {
                 document.getElementById('chatBox').innerHTML = data.map(m => renderBubble(m)).join('');
                 document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+
+                // --- NAYA CODE: Rider ke messages ko database mein 'seen' kar do ---
+                await _supabase.from('order_chats')
+                    .update({ status: 'seen' })
+                    .eq('order_id', orderId)
+                    .neq('sender_phone', userPhone)
+                    .neq('status', 'seen');
             }
         }
 
@@ -300,14 +307,39 @@ function ring() {
                 schema: 'public', 
                 table: 'order_chats', 
                 filter: `order_id=eq.${orderId}` 
-            }, (payload) => {
+            }, async (payload) => {
                 if(payload.new.sender_phone !== userPhone) {
                     appendToUI(payload.new);
-                    ring();
+                    ring(); // Awaz baje
+                    
+                    // --- NAYA CODE: Kyunke hum chat khol ke bethe hain, naye message ko foran seen kar do ---
+                    await _supabase.from('order_chats')
+                        .update({ status: 'seen' })
+                        .eq('id', payload.new.id);
                 }
             }).subscribe();
 
         loadMessages();
+        // --- AUDIO FORCE UNLOCKER ---
+        function forceUnlockAudio() {
+            const sound = document.getElementById('notifSound');
+            if(sound) {
+                let promise = sound.play();
+                if (promise !== undefined) {
+                    promise.then(() => {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }).catch(error => console.log("Unlock error", error));
+                }
+            }
+            document.removeEventListener('click', forceUnlockAudio);
+            document.removeEventListener('touchstart', forceUnlockAudio);
+            document.removeEventListener('scroll', forceUnlockAudio);
+        }
+
+        document.addEventListener('click', forceUnlockAudio);
+        document.addEventListener('touchstart', forceUnlockAudio);
+        document.addEventListener('scroll', forceUnlockAudio);
     </script>
 </body>
 </html>
