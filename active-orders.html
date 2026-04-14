@@ -36,7 +36,7 @@
         <i class="fas fa-wifi-slash mr-2"></i> No Internet Connection
     </div>
 
-    <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <audio id="notifSound" src="https://hfaghazbwdbjurachzzq.supabase.co/storage/v1/object/public/order-files/rigtone.mp3" preload="auto"></audio>
 
     <header class="sticky top-0 bg-white/80 backdrop-blur-md z-40 p-4 flex items-center border-b">
         <i class="fas fa-chevron-left text-xl mr-4 p-2 cursor-pointer active:scale-90 transition-transform text-gray-700" onclick="window.location.href='home.html'"></i>
@@ -81,6 +81,31 @@
         let activeTimers = {};
         let globalDeliveryTime = 30;
         let lastDataString = ""; 
+        let unreadCounts = {}; // Naya variable chats ginne ke liye
+
+        // Naya function unread messages fetch karne ke liye
+        async function fetchUnreadCounts() {
+            if (!currentOrders || currentOrders.length === 0) {
+                renderOrders(currentOrders);
+                return;
+            }
+            const orderIds = currentOrders.map(o => o.id);
+            
+            const { data, error } = await _supabase
+                .from('order_chats')
+                .select('order_id')
+                .in('order_id', orderIds)
+                .neq('sender_phone', userPhone)
+                .neq('status', 'seen'); // Jo messages abhi seen nahi hue
+                
+            if (!error && data) {
+                unreadCounts = {};
+                data.forEach(msg => {
+                    unreadCounts[msg.order_id] = (unreadCounts[msg.order_id] || 0) + 1;
+                });
+            }
+            renderOrders(currentOrders);
+        }
 
         // Ringtone Logic with WebView Safety
         function ring() { 
@@ -120,17 +145,20 @@
 
             // 1. Listen for Order Updates
             _supabase.channel('order-updates').on('postgres_changes', { 
-                event: '*', schema: 'public', table: 'orders', filter: `customer_phone=eq.${userPhone}` 
+                event: 'UPDATE', schema: 'public', table: 'orders', filter: `customer_phone=eq.${userPhone}` 
             }, (payload) => {
                 ring(); // Ringtone bajegi jab order update hoga
                 fetchOrders();
             }).subscribe();
 
-            // 2. Listen for Rider Messages (Chats table)
+            // 2. Listen for Rider Messages (Chats table ki jagah order_chats)
             _supabase.channel('message-notifs').on('postgres_changes', { 
-                event: 'INSERT', schema: 'public', table: 'chats', filter: `receiver_id=eq.${userPhone}` 
-            }, () => {
-                ring(); // Ringtone bajegi jab naya message aayega
+                event: 'INSERT', schema: 'public', table: 'order_chats' 
+            }, (payload) => {
+                if(payload.new.sender_phone !== userPhone) {
+                    ring(); // Ringtone bajegi jab rider ka naya message aayega
+                    fetchUnreadCounts(); // Naya message aane par screen pe count update ho jayega
+                }
             }).subscribe();
         }
 
@@ -152,7 +180,7 @@
             if (lastDataString !== currentDataString) {
                 lastDataString = currentDataString;
                 currentOrders = data || [];
-                renderOrders(currentOrders);
+                fetchUnreadCounts(); // renderOrders ki jagah ab ye call hoga taake pehle unread messages count hon
             }
         }
 
@@ -223,8 +251,9 @@
                             <span class="text-[10px] font-black text-gray-400 uppercase">Tracked</span>
                         </div>
                         ${(status === 'assigned' || isArrived) ? 
-                            `<button onclick="event.stopPropagation(); window.location.href='chat.html?orderId=${order.id}'" class="bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-[11px] font-black shadow-lg active:scale-95 transition-transform flex items-center gap-2">
+                            `<button onclick="event.stopPropagation(); window.location.href='chat.html?orderId=${order.id}'" class="relative bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-[11px] font-black shadow-lg active:scale-95 transition-transform flex items-center gap-2">
                                 <i class="fas fa-comment-dots"></i> CHAT
+                                ${unreadCounts[order.id] ? `<span class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white animate-bounce">${unreadCounts[order.id]}</span>` : ''}
                             </button>` : ''}
                     </div>
                 </div>`;
