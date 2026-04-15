@@ -12,7 +12,7 @@
         /* WebView specific fixes (Pull to refresh & Text selection disabled) */
         html, body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            overscroll-behavior-y: none; /* Ye page refresh hone se rokega */
+            overscroll-behavior-y: none; 
             -webkit-tap-highlight-color: transparent; 
             user-select: none;
         }
@@ -31,15 +31,10 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen pb-10">
-    <button onclick="document.getElementById('notifSound').play()" style="padding:15px; background:red; color:white; position:fixed; top:50px; left:20px; z-index:9999; border-radius:10px; font-weight:bold;">
-    TEST SOUND
-</button>
 
     <div id="offlineBanner" class="fixed top-[-50px] left-0 w-full bg-red-500 text-white text-center text-[10px] uppercase tracking-widest py-2 z-[60] font-black shadow-md">
         <i class="fas fa-wifi-slash mr-2"></i> No Internet Connection
     </div>
-
-    <audio id="notifSound" src="https://hfaghazbwdbjurachzzq.supabase.co/storage/v1/object/public/order-files/rigtone.mp3" preload="auto"></audio>
 
     <header class="sticky top-0 bg-white/80 backdrop-blur-md z-40 p-4 flex items-center border-b">
         <i class="fas fa-chevron-left text-xl mr-4 p-2 cursor-pointer active:scale-90 transition-transform text-gray-700" onclick="window.location.href='home.html'"></i>
@@ -78,49 +73,55 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         const userPhone = (localStorage.getItem('faster_phone') || "").trim();
-        const sound = document.getElementById('notifSound');
+        
+        // --- 100% WEBVIEW AUDIO FIX: Direct JavaScript Audio Object ---
+        const sound = new Audio("https://hfaghazbwdbjurachzzq.supabase.co/storage/v1/object/public/order-files/rigtone.mp3");
+        sound.preload = "auto";
+        let isAudioUnlocked = false;
         
         let currentOrders = [];
         let activeTimers = {};
         let globalDeliveryTime = 30;
-        let lastDataString = ""; 
-        let unreadCounts = {}; // Naya variable chats ginne ke liye
+        let unreadCounts = {}; 
 
-        // Naya function unread messages fetch karne ke liye
-        async function fetchUnreadCounts() {
-            if (!currentOrders || currentOrders.length === 0) {
-                renderOrders(currentOrders);
-                return;
-            }
-            const orderIds = currentOrders.map(o => o.id);
+        // Audio Force Unlocker (Muted Autoplay Hack)
+        function forceUnlockAudio() {
+            if (isAudioUnlocked) return;
             
-            const { data, error } = await _supabase
-                .from('order_chats')
-                .select('order_id')
-                .in('order_id', orderIds)
-                .neq('sender_phone', userPhone)
-                .neq('status', 'seen'); 
-                
-            let newCounts = {};
-            if (!error && data) {
-                data.forEach(msg => {
-                    newCounts[msg.order_id] = (newCounts[msg.order_id] || 0) + 1;
+            sound.muted = true; 
+            let promise = sound.play();
+            
+            if (promise !== undefined) {
+                promise.then(() => {
+                    sound.pause();
+                    sound.currentTime = 0;
+                    sound.muted = false; 
+                    isAudioUnlocked = true;
+                    console.log("Audio Unlocked for WebView!");
+                }).catch(error => {
+                    console.log("Audio still blocked:", error);
                 });
             }
-            unreadCounts = newCounts; // Har dafa update hoga
-            renderOrders(currentOrders);
+            
+            document.removeEventListener('click', forceUnlockAudio);
+            document.removeEventListener('touchstart', forceUnlockAudio);
+            document.removeEventListener('scroll', forceUnlockAudio);
         }
 
-        // Ringtone Logic with WebView Safety (Zabardasti Aawaz + Vibrate)
+        document.addEventListener('click', forceUnlockAudio);
+        document.addEventListener('touchstart', forceUnlockAudio);
+        document.addEventListener('scroll', forceUnlockAudio);
+
+        // Ringtone & Vibrate Logic
         function ring() { 
             if(!sound) return;
             sound.volume = 1.0; 
             sound.currentTime = 0; 
+            
             let playPromise = sound.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
-                    console.log("Audio blocked by Android:", error);
-                    // Agar aawaz block ho jaye tou zor se vibrate karega!
+                    console.log("Audio blocked by Android policy:", error);
                     if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 300]); 
                 });
             } else {
@@ -145,7 +146,7 @@
             await fetchOrders();
             setupRealtime();
 
-            // Offline-safe Polling (Runs every 3 seconds to save WebView memory)
+            // Offline-safe Polling 
             setInterval(() => {
                 if(navigator.onLine) { fetchOrders(); }
             }, 3000);
@@ -154,7 +155,7 @@
         function setupRealtime() {
             _supabase.removeAllChannels();
 
-            // 1. Listen for Order Updates
+            // Order Updates
             _supabase.channel('order-updates').on('postgres_changes', { 
                 event: 'UPDATE', schema: 'public', table: 'orders', filter: `customer_phone=eq.${userPhone}` 
             }, (payload) => {
@@ -162,7 +163,7 @@
                 fetchOrders();
             }).subscribe();
 
-            // 2. Listen for Rider Messages (Naya message aaye tou ring aur count update ho)
+            // New Chat Message
             _supabase.channel('message-notifs').on('postgres_changes', { 
                 event: 'INSERT', schema: 'public', table: 'order_chats' 
             }, (payload) => {
@@ -172,12 +173,36 @@
                 }
             }).subscribe();
 
-            // 3. Listen for Read Messages (Agar chat parh li jaye tou badge foran khatam ho)
+            // Message Seen (Clear Badge)
             _supabase.channel('message-seen').on('postgres_changes', { 
                 event: 'UPDATE', schema: 'public', table: 'order_chats' 
             }, (payload) => {
                 fetchUnreadCounts(); 
             }).subscribe();
+        }
+
+        async function fetchUnreadCounts() {
+            if (!currentOrders || currentOrders.length === 0) {
+                renderOrders(currentOrders);
+                return;
+            }
+            const orderIds = currentOrders.map(o => o.id);
+            
+            const { data, error } = await _supabase
+                .from('order_chats')
+                .select('order_id')
+                .in('order_id', orderIds)
+                .neq('sender_phone', userPhone)
+                .neq('status', 'seen'); 
+                
+            let newCounts = {};
+            if (!error && data) {
+                data.forEach(msg => {
+                    newCounts[msg.order_id] = (newCounts[msg.order_id] || 0) + 1;
+                });
+            }
+            unreadCounts = newCounts;
+            renderOrders(currentOrders);
         }
 
         async function fetchOrders() {
@@ -194,7 +219,6 @@
                 return;
             }
 
-            // Hamesha current data aur counts refresh karo (purani rok hata di)
             currentOrders = data || [];
             fetchUnreadCounts(); 
         }
@@ -375,43 +399,8 @@
             document.getElementById('offlineBanner').style.top = '-50px';
             fetchOrders();
         });
-        // --- ULTIMATE AUDIO UNLOCKER FOR ANDROID ---
-        let isAudioUnlocked = false;
-        
-        function forceUnlockAudio() {
-            if (isAudioUnlocked) return;
-            
-            const sound = document.getElementById('notifSound');
-            if(sound) {
-                // TRICK: Browser ko dhoka dene ke liye pehle awaz MUTE kar ke play karein
-                sound.muted = true; 
-                let promise = sound.play();
-                
-                if (promise !== undefined) {
-                    promise.then(() => {
-                        sound.pause();
-                        sound.currentTime = 0;
-                        sound.muted = false; // Awaz wapas khol dein
-                        isAudioUnlocked = true;
-                        console.log("Audio Unlocked 100%!");
-                    }).catch(error => {
-                        console.log("Android blocked audio:", error);
-                    });
-                }
-            }
-            
-            // Ek dafa unlock ho jaye toh inko hata do
-            document.removeEventListener('click', forceUnlockAudio);
-            document.removeEventListener('touchstart', forceUnlockAudio);
-            document.removeEventListener('scroll', forceUnlockAudio);
-        }
 
-        // Har qisam ki screen movement par unlocker laga diya
-        document.addEventListener('click', forceUnlockAudio);
-        document.addEventListener('touchstart', forceUnlockAudio);
-        document.addEventListener('scroll', forceUnlockAudio);
-
-        // Jab user chat screen se 'Back' dabaye, toh cache ki jagah data dobara load kare
+        // Cache busting for iOS/Android Back button 
         window.addEventListener('pageshow', function (event) {
             if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
                 fetchOrders();
