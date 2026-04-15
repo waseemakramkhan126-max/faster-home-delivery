@@ -320,23 +320,40 @@ function ring() {
             }).subscribe();
 
         loadMessages();
-        // --- AUDIO FORCE UNLOCKER ---
+        loadMessages(); // Yeh line pehle se mojood hogi, iske foran baad paste karein 👇
+
+        // --- ULTIMATE AUDIO UNLOCKER FOR ANDROID ---
+        let isAudioUnlocked = false;
+        
         function forceUnlockAudio() {
+            if (isAudioUnlocked) return;
+            
             const sound = document.getElementById('notifSound');
             if(sound) {
+                // TRICK: Browser ko dhoka dene ke liye pehle awaz MUTE kar ke play karein
+                sound.muted = true; 
                 let promise = sound.play();
+                
                 if (promise !== undefined) {
                     promise.then(() => {
                         sound.pause();
                         sound.currentTime = 0;
-                    }).catch(error => console.log("Unlock error", error));
+                        sound.muted = false; // Awaz wapas khol dein
+                        isAudioUnlocked = true;
+                        console.log("Audio Unlocked 100%!");
+                    }).catch(error => {
+                        console.log("Android blocked audio:", error);
+                    });
                 }
             }
+            
+            // Ek dafa unlock ho jaye toh inko hata do
             document.removeEventListener('click', forceUnlockAudio);
             document.removeEventListener('touchstart', forceUnlockAudio);
             document.removeEventListener('scroll', forceUnlockAudio);
         }
 
+        // Har qisam ki screen movement par unlocker laga diya
         document.addEventListener('click', forceUnlockAudio);
         document.addEventListener('touchstart', forceUnlockAudio);
         document.addEventListener('scroll', forceUnlockAudio);
