@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Faster - Home</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -10,86 +10,94 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         
-        /* App-like behavior for WebView */
+        /* Mobile WebView & iOS Settings */
         html, body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            overscroll-behavior-y: none; /* Prevents pull-to-refresh */
+            overscroll-behavior-y: none;
             -webkit-tap-highlight-color: transparent; 
-            user-select: none; /* Prevents text selection like a real app */
+            user-select: none;
+            -webkit-user-select: none;
+            padding-top: env(safe-area-inset-top);
         }
         
+        /* 1. New Order Card Animation (Green Pulse) */
+        @keyframes order-pulse {
+            0% { transform: scale(1); background-color: white; }
+            50% { transform: scale(1.05); background-color: #f0fdf4; border-color: #4ade80; box-shadow: 0 10px 25px -5px rgba(74, 222, 128, 0.4); }
+            100% { transform: scale(1); background-color: white; }
+        }
+        .new-order-glow { animation: order-pulse 1.5s ease-in-out infinite; border-width: 2px !important; border-color: #4ade80 !important; z-index: 50; }
+
+        /* 2. Bell Icon Continuous Zoom/Pulse Animation (Red Glow) */
+        @keyframes bell-pulse {
+            0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0)); color: #9ca3af; }
+            50% { transform: scale(1.2) rotate(15deg); filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)); color: #ef4444; }
+            100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(239, 68, 68, 0)); color: #9ca3af; }
+        }
+        .bell-active { animation: bell-pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite !important; color: #ef4444 !important; }
+
+        /* Sidebar & General UI */
         .sidebar { transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(-100%); }
         .sidebar.active { transform: translateX(0); }
+        .brand-logo-gol { object-fit: cover; border-radius: 9999px; border: 2px solid #f97316; background: white; box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.2); }
         
-        /* 3D Brand Logo */
-        .brand-logo-gol { 
-            object-fit: cover; 
-            border-radius: 9999px; 
-            border: 2px solid #f97316;
-            background: white;
-            box-shadow: 0 4px 6px -1px rgba(249, 115, 22, 0.2);
-        }
-
-        .notif-badge { 
-            position: absolute; top: -2px; right: -2px; 
-            background: #ef4444; border: 2px solid white; 
-            width: 12px; height: 12px; border-radius: 50%; 
-            display: none; animation: pulse 1.5s infinite; z-index: 10;
-        }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        /* Notification Red Dot Badge */
+        .notif-badge { position: absolute; top: -2px; right: -2px; background: #ef4444; border: 2px solid white; width: 12px; height: 12px; border-radius: 50%; display: none; z-index: 10; }
+        @keyframes badge-pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+        .notif-badge.active { display: block; animation: badge-pulse 1.5s infinite; }
         
-        .action-card { transition: all 0.2s ease; }
+        .action-card { transition: all 0.2s ease; position: relative; }
         .action-card:active { transform: scale(0.95); }
-
-        /* Offline Banner Animation */
         #offlineBanner { transition: top 0.3s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-    <div id="offlineBanner" class="fixed top-[-50px] left-0 w-full bg-red-500 text-white text-center text-[10px] uppercase tracking-widest py-2 z-[60] font-black shadow-md">
-        <i class="fas fa-wifi-slash mr-2"></i> No Internet Connection
+    <div id="offlineBanner" class="fixed top-[-50px] left-0 w-full bg-red-500 text-white text-center text-[10px] uppercase tracking-widest py-2 z-[60] font-black shadow-md flex justify-center items-center gap-2">
+        <i class="fas fa-wifi-slash"></i> No Internet Connection
     </div>
 
     <audio id="notifSound" src="https://hfaghazbwdbjurachzzq.supabase.co/storage/v1/object/public/order-files/rigtone.mp3" preload="auto"></audio>
 
-    <div id="sidebar" class="sidebar fixed top-0 left-0 h-full w-[80%] max-w-[300px] bg-white z-50 shadow-2xl p-6 flex flex-col">
-        <div class="flex justify-between items-center mb-8">
+    <div id="sidebar" class="sidebar fixed top-0 left-0 h-full w-[80%] max-w-[300px] bg-white z-50 shadow-2xl p-6 flex flex-col pt-safe">
+        <div class="flex justify-between items-center mb-8 mt-2">
             <div class="flex items-center gap-3">
                 <img id="sideLogo" src="" class="w-10 h-10 brand-logo-gol hidden">
                 <h2 class="text-xl font-black text-gray-800 tracking-tighter">FASTER <span class="text-orange-500 italic">APP</span></h2>
             </div>
-            <i class="fas fa-times text-xl text-gray-400 cursor-pointer" onclick="toggleMenu()"></i>
+            <i class="fas fa-times text-xl text-gray-400 cursor-pointer p-2 active:scale-90 transition-transform" onclick="toggleMenu()"></i>
         </div>
 
         <nav class="space-y-3 flex-1">
-            <div onclick="location.href='wallet.html'" class="p-4 bg-orange-50 rounded-2xl cursor-pointer border border-orange-100 flex justify-between items-center group active:bg-orange-100 transition-all">
+            <div onclick="location.href='wallet.html'" class="p-4 bg-orange-50 rounded-2xl cursor-pointer border border-orange-100 flex justify-between items-center group active:bg-orange-100 transition-all shadow-sm">
                 <div class="flex items-center gap-3">
-                    <i class="fas fa-wallet text-orange-500"></i>
+                    <i class="fas fa-wallet text-orange-500 text-lg"></i>
                     <span class="font-bold text-gray-700">My Wallet</span>
                 </div>
                 <i class="fas fa-chevron-right text-[10px] text-orange-300"></i>
             </div>
 
-            <a href="csr-chat.html" class="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition font-bold text-gray-600">
-                <i class="fab fa-whatsapp text-green-500 text-xl"></i>
+            <a href="csr-chat.html" class="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-2xl transition font-bold text-gray-600 border border-transparent active:border-gray-200">
+                <i class="fab fa-whatsapp text-green-500 text-2xl"></i>
                 <span>CSR Help</span>
             </a>
         </nav>
 
-        <button onclick="logout()" class="w-full bg-red-50 text-red-600 font-black py-4 rounded-2xl flex items-center justify-center gap-2 mt-auto uppercase tracking-widest text-xs active:bg-red-100 transition">
+        <button onclick="logout()" class="w-full bg-red-50 text-red-600 font-black py-4 rounded-2xl flex items-center justify-center gap-2 mt-auto uppercase tracking-widest text-xs active:bg-red-100 transition border border-red-100 shadow-sm mb-4">
             <i class="fas fa-power-off"></i> Logout Account
         </button>
     </div>
 
-    <header class="p-5 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100">
+    <header class="p-5 flex justify-between items-center bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 pt-safe">
         <div class="flex items-center gap-5">
-            <i class="fas fa-bars-staggered text-2xl text-gray-700 cursor-pointer active:scale-90 transition" onclick="toggleMenu()"></i>
-            <div class="relative cursor-pointer active:scale-90 transition" onclick="location.href='notifications.html'">
-                <i id="notifBell" class="fas fa-bell text-2xl text-gray-400"></i>
+            <i class="fas fa-bars-staggered text-2xl text-gray-700 cursor-pointer active:scale-90 transition p-1" onclick="toggleMenu()"></i>
+            
+            <div class="relative cursor-pointer transition p-1 flex items-center justify-center w-10 h-10" onclick="location.href='notifications.html'">
+                <i id="notifBell" class="fas fa-bell text-2xl text-gray-400 transition-colors"></i>
                 <div id="notifBadge" class="notif-badge"></div>
             </div>
         </div>
+        
         <div class="w-11 h-11">
             <img id="appLogo" src="" alt="Logo" class="w-full h-full brand-logo-gol hidden">
             <div id="logoFallback" class="w-11 h-11 bg-orange-500 rounded-full flex items-center justify-center shadow-md">
@@ -107,12 +115,12 @@
                 </div>
                 
                 <div id="walletMiniDisplay" class="mt-2 flex items-center gap-2 h-6">
-                    <span id="walletLoading" class="text-[10px] text-gray-400 font-bold uppercase hidden"><i class="fas fa-sync-alt animate-spin mr-1"></i> Syncing Wallet...</span>
+                    <span id="walletLoading" class="text-[10px] text-gray-400 font-bold uppercase hidden"><i class="fas fa-sync-alt animate-spin mr-1"></i> Syncing...</span>
                     
-                    <p id="homePendBox" class="hidden text-[10px] font-black text-red-600 bg-red-100 px-3 py-1 rounded-full uppercase border border-red-200 shadow-sm">
+                    <p id="homePendBox" class="hidden text-[10px] font-black text-red-600 bg-red-100 px-3 py-1 rounded-full uppercase border border-red-200 shadow-sm transition-all">
                         <i class="fas fa-exclamation-circle mr-1"></i> Pending: <span id="homePend">0</span>
                     </p>
-                    <p id="homeRemBox" class="hidden text-[10px] font-black text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full uppercase border border-emerald-200 shadow-sm">
+                    <p id="homeRemBox" class="hidden text-[10px] font-black text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full uppercase border border-emerald-200 shadow-sm transition-all">
                         <i class="fas fa-check-circle mr-1"></i> Wallet: <span id="homeRem">0</span>
                     </p>
                 </div>
@@ -120,26 +128,28 @@
         </div>
 
         <div class="grid grid-cols-1 gap-4">
-            <div onclick="location.href='new-order.html'" class="action-card cursor-pointer bg-slate-900 p-6 rounded-[2rem] shadow-xl flex items-center justify-between border-b-4 border-orange-500">
+            <div onclick="location.href='new-order.html'" class="action-card bg-slate-900 p-6 rounded-[2rem] shadow-xl flex items-center justify-between border-b-4 border-orange-500 cursor-pointer">
                 <div class="flex items-center gap-4">
                     <div class="bg-orange-500 w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-500/30">
                         <i class="fas fa-plus text-xl"></i>
                     </div>
                     <span class="font-black text-white uppercase tracking-wider">Start New Order</span>
                 </div>
-                <i class="fas fa-arrow-right text-slate-600"></i>
+                <i class="fas fa-arrow-right text-slate-500"></i>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-                <div onclick="location.href='active-orders.html'" class="action-card cursor-pointer bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4">
-                    <div class="bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-inner">
+                <div id="activeOrdersCard" onclick="location.href='active-orders.html'" class="action-card bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4 cursor-pointer">
+                    <div class="bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center text-xl border border-blue-100 shadow-inner">
                         <span>⏱️</span>
                     </div>
                     <span class="font-black text-gray-700 text-xs uppercase tracking-tight">Active Orders</span>
+                    
+                    <div id="activeChatBadge" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-6 h-6 flex items-center justify-center rounded-full border-2 border-white shadow-lg font-bold animate-bounce">0</div>
                 </div>
 
-                <div onclick="location.href='completed.html'" class="action-card cursor-pointer bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4">
-                    <div class="bg-green-50 w-10 h-10 rounded-xl flex items-center justify-center text-green-500 shadow-inner">
+                <div onclick="location.href='completed.html'" class="action-card bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col gap-4 cursor-pointer">
+                    <div class="bg-green-50 w-10 h-10 rounded-xl flex items-center justify-center text-green-500 shadow-inner border border-green-100">
                         <i class="fas fa-check-double"></i>
                     </div>
                     <span class="font-black text-gray-700 text-xs uppercase tracking-tight">Completed</span>
@@ -149,7 +159,7 @@
     </main>
 
     <script>
-        // Supabase Configuration
+        // Supabase Initialization
         const SB_URL = "https://hfaghazbwdbjurachzzq.supabase.co";
         const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmYWdoYXpid2RianVyYWNoenpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4ODQ1ODAsImV4cCI6MjA4NjQ2MDU4MH0.ojmtP9i_wO74CuvDUgI--lhocsfqcB_Lql_hC2w8UMI";
         const _supabase = supabase.createClient(SB_URL, SB_KEY);
@@ -158,20 +168,25 @@
         const userPhone = (localStorage.getItem('faster_phone') || "").trim();
         if (!userPhone) {
             window.location.replace('index.html');
+        } else {
+            // Setup OneSignal Deep Linking for App Push Notifications
+            try {
+                window.location.href = "gonative://onesignal/externalId/set?id=" + userPhone;
+            } catch (e) { console.warn("OneSignal linking skipped outside Median app"); }
         }
 
         const sound = document.getElementById('notifSound');
 
-        // Initialize App
+        // Main App Initialization
         async function initializeApp() {
-            if (!navigator.onLine) return; // Skip fetch if offline
+            if (!navigator.onLine) return; // Skip online logic if offline
 
             document.getElementById('userName').innerText = localStorage.getItem('faster_name') || 'Customer';
 
             try {
-                // Fetch Logo
-                const { data: settings } = await _supabase.from('app_settings').select('logo_url').eq('id', 1).single();
-                if (settings && settings.logo_url) {
+                // Fetch Global Logo
+                const { data: settings, error } = await _supabase.from('app_settings').select('logo_url').eq('id', 1).single();
+                if (settings && settings.logo_url && !error) {
                     const imgH = document.getElementById('appLogo');
                     const imgS = document.getElementById('sideLogo');
                     imgH.src = imgS.src = settings.logo_url;
@@ -185,15 +200,15 @@
 
             if(userPhone) {
                 checkNotifications();
+                updateHomeBadges();
                 fetchWalletBalance();
                 setupRealtime();
             }
         }
 
-        // Fetch Wallet Data securely
+        // Fetch Wallet Data Securely
         async function fetchWalletBalance() {
             if (!navigator.onLine) return;
-
             document.getElementById('walletLoading').classList.remove('hidden');
             
             try {
@@ -203,7 +218,7 @@
                     .eq('customer_phone', userPhone)
                     .eq('status', 'completed')
                     .order('updated_at', { ascending: false })
-                    .limit(1); // Performance optimization: Only fetch the latest
+                    .limit(1); 
 
                 if (error) throw error;
 
@@ -214,7 +229,6 @@
 
                 if (orders && orders.length > 0) {
                     const currentBal = parseFloat(orders[0].balance_amount || 0);
-
                     if (currentBal > 0) { 
                         hPend.innerText = `Rs. ${currentBal}`; 
                         pBox.classList.remove('hidden'); 
@@ -234,16 +248,15 @@
                     rBox.classList.add('hidden'); 
                 }
             } catch (e) { 
-                console.log("Wallet fetch error", e); 
+                console.error("Wallet fetch error", e); 
             } finally {
                 document.getElementById('walletLoading').classList.add('hidden');
             }
         }
 
-        // Check Notifications
+        // --- UPGRADED NOTIFICATION CHECK (Main Bell) ---
         async function checkNotifications() {
             if (!navigator.onLine) return;
-
             try {
                 const lastRead = localStorage.getItem('last_notif_read') || new Date().toISOString();
                 
@@ -255,80 +268,153 @@
                 const bell = document.getElementById('notifBell');
                 const badge = document.getElementById('notifBadge');
                 
+                // Agar koi bhi naya unseen alert hai
                 if ((chatRes.count || 0) > 0 || (orderRes.count || 0) > 0) { 
-                    badge.style.display = 'block'; 
-                    bell.classList.add('text-red-500'); 
+                    badge.classList.add('active'); // Dot show & pulse
+                    bell.classList.add('bell-active'); // Bell continuous red zoom/pulse
                 } else { 
-                    badge.style.display = 'none'; 
-                    bell.classList.remove('text-red-500'); 
+                    badge.classList.remove('active'); 
+                    bell.classList.remove('bell-active'); 
                 }
-            } catch (e) {
-                console.error("Notification check failed:", e);
-            }
+            } catch (e) { console.error("Notification check failed:", e); }
         }
 
-        // Ringtone Logic with WebView Safety
+        // Active Orders Chat Badge Update
+        async function updateHomeBadges() {
+            if (!navigator.onLine) return;
+            
+            try {
+                const { data: activeOrders } = await _supabase
+                    .from('orders')
+                    .select('id')
+                    .eq('customer_phone', userPhone)
+                    .not('status', 'in', '("completed","canceled","CANCELLED","cancelled")');
+
+                const badge = document.getElementById('activeChatBadge');
+                
+                if (activeOrders && activeOrders.length > 0) {
+                    const orderIds = activeOrders.map(o => o.id);
+                    const { data: unreadMsgs } = await _supabase
+                        .from('order_chats')
+                        .select('id')
+                        .in('order_id', orderIds)
+                        .neq('sender_phone', userPhone)
+                        .neq('status', 'seen');
+
+                    if (unreadMsgs && unreadMsgs.length > 0) {
+                        badge.innerText = unreadMsgs.length;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                } else {
+                    badge.classList.add('hidden');
+                }
+            } catch (e) { console.error("Badge update failed:", e); }
+        }
+
+        // New Order Pulse Animation Function
+        function triggerOrderAnimation() {
+            const card = document.getElementById('activeOrdersCard');
+            card.classList.add('new-order-glow');
+            setTimeout(() => card.classList.remove('new-order-glow'), 10000); // 10 sec baad khatam
+        }
+
+        // Reliable Ringtone Logic
         function ring() { 
+            if(!sound) return;
             sound.currentTime = 0; 
-            // Try-catch logic prevents crashing if browser blocks autoplay
             let playPromise = sound.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.log("Audio play prevented by browser/webview:", error);
-                });
+                playPromise.catch(error => { console.warn("Audio play prevented:", error); });
             }
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
         }
 
-        // Realtime Subscriptions
+        // Force Audio Unlock for strict WebViews (iOS/Android)
+        function unlockAudio() {
+            if(sound) {
+                sound.muted = true;
+                sound.play().then(() => {
+                    sound.pause();
+                    sound.currentTime = 0;
+                    sound.muted = false;
+                    document.removeEventListener('touchstart', unlockAudio);
+                    document.removeEventListener('click', unlockAudio);
+                }).catch(e => console.warn(e));
+            }
+        }
+        document.addEventListener('touchstart', unlockAudio, { once: true });
+        document.addEventListener('click', unlockAudio, { once: true });
+
+        // --- MUKAMMAL REALTIME SUBSCRIPTION ---
         function setupRealtime() {
-            // Remove existing channels if reconnecting to prevent duplicate firing
-            _supabase.removeAllChannels();
+            _supabase.removeAllChannels(); 
 
             _supabase.channel('customer-live')
+                // Rider ki taraf se naya message aaye
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_chats' }, (payload) => { 
-                    if(payload.new.sender_phone !== userPhone) {
+                    if(payload.new && payload.new.sender_phone !== userPhone) {
                         checkNotifications(); 
+                        updateHomeBadges();
                         ring(); 
                     }
                 })
+                // Rider ki taraf se message seen ho jaye
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_chats' }, (payload) => { 
+                    if(payload.new && payload.new.status === 'seen') {
+                        updateHomeBadges(); 
+                        checkNotifications();
+                    }
+                })
+                // Naya order bane
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `customer_phone=eq.${userPhone}` }, () => { 
+                    triggerOrderAnimation();
+                    checkNotifications();
+                    ring(); 
+                })
+                // Rider order ka status update kare (e.g., Assigned, Arrived, Completed)
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `customer_phone=eq.${userPhone}` }, () => { 
                     checkNotifications(); 
-                    ring(); 
                     fetchWalletBalance(); 
+                    ring(); 
+                })
+                // Admin (CSR) ki taraf se chat ka naya message aaye
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chats', filter: `receiver_id=eq.${userPhone}` }, () => { 
+                    checkNotifications();
+                    ring(); 
                 })
                 .subscribe();
         }
 
         // UI Interactions
-        function toggleMenu() { 
-            document.getElementById('sidebar').classList.toggle('active'); 
-        }
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); }
         
         function logout() { 
             if(confirm("Are you sure you want to logout?")) { 
                 localStorage.clear(); 
-                window.location.replace("index.html"); 
+                try { window.location.href = "gonative://onesignal/externalId/remove"; } catch (e) {}
+                setTimeout(() => { window.location.replace("index.html"); }, 500);
             } 
         }
 
-        // Network State Listeners (Online/Offline)
-        window.addEventListener('offline', () => {
-            document.getElementById('offlineBanner').style.top = '0';
-        });
-
+        // Network State Offline/Online Handlers
+        window.addEventListener('offline', () => { document.getElementById('offlineBanner').style.top = '0'; });
         window.addEventListener('online', () => {
             document.getElementById('offlineBanner').style.top = '-50px';
-            initializeApp(); // Refresh data when back online
+            initializeApp();
         });
 
-        // Set Dynamic Greeting
+        // Dynamic Greeting Generator
         function setGreeting() {
             const hour = new Date().getHours();
-            document.getElementById('greeting').innerText = hour < 12 ? "Good Morning," : (hour < 17 ? "Good Afternoon," : "Good Evening,");
+            const greetingEl = document.getElementById('greeting');
+            if (hour < 12) greetingEl.innerHTML = '<i class="fas fa-sun text-yellow-500 mr-1"></i> Good Morning,';
+            else if (hour < 17) greetingEl.innerHTML = '<i class="fas fa-cloud-sun text-orange-400 mr-1"></i> Good Afternoon,';
+            else greetingEl.innerHTML = '<i class="fas fa-moon text-indigo-400 mr-1"></i> Good Evening,';
         }
 
-        // Boot
+        // Run on Page Load
         setGreeting();
         initializeApp();
     </script>
